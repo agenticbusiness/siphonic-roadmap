@@ -158,6 +158,9 @@
             <button onclick="undoAction()" class="p-2 hover:bg-slate-700/50 rounded-lg transition text-slate-300 hover:text-white" title="Undo Last Action" id="undo-btn" style="opacity: 0.5; pointer-events: none;">
                 <i data-lucide="undo-2" class="w-5 h-5"></i>
             </button>
+            <button onclick="exportManifest()" class="p-2 hover:bg-emerald-500/10 hover:border-emerald-500/30 rounded-lg transition text-emerald-400 hover:text-emerald-300 border border-transparent" title="Sync Evolution Ledger">
+                <i data-lucide="download" class="w-5 h-5"></i>
+            </button>
             <button onclick="resetView()" class="p-2 hover:bg-slate-700/50 rounded-lg transition text-slate-300 hover:text-white" title="Reset View">
                 <i data-lucide="maximize" class="w-5 h-5"></i>
             </button>
@@ -649,11 +652,35 @@
         }
 
         function resetView() {
-            scale = 1;
-            translateX = (window.innerWidth - 1200) / 2; 
-            translateY = 50;
-            if(translateX < 50) translateX = 50; 
-            updateTransform();
+            setTimeout(() => {
+                const canvasEl = document.getElementById('canvas');
+                const canvasWidth = canvasEl.offsetWidth || 3000;
+                
+                // SDD/TDD Iron Law: Calculate true scale ratio to fit the entire map perfectly on screen
+                const padding = 120;
+                const targetScale = Math.min(1, (window.innerWidth - padding) / canvasWidth);
+                
+                scale = targetScale;
+                // Center the scaled canvas perfectly
+                translateX = (window.innerWidth - (canvasWidth * scale)) / 2;
+                translateY = 100;
+                
+                updateTransform();
+            }, 50); // slight delay to ensure DOM has rendered
+        }
+
+        // --- U-P-C EVOLUTION LEDGER SYNC ---
+        function exportManifest() {
+            const manifest = {
+                timestamp: new Date().toISOString(),
+                roadmap_tasks: ROADMAP_TASKS,
+                stream_tasks: STREAM_TASKS
+            };
+            const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `siphonic-evolution-ledger-${Date.now()}.json`;
+            a.click();
         }
 
         viewport.addEventListener('wheel', (e) => {
