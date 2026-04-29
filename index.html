@@ -246,6 +246,26 @@
         </div>
     </div>
 
+    <!-- Input Modal Overlay -->
+    <div id="input-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[60] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
+        <div class="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700 transform scale-95 transition-transform duration-200 flex flex-col" id="input-modal-content">
+            <div class="p-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
+                <h3 id="input-modal-title" class="font-bold text-lg leading-snug text-white glow-text">Enter Details</h3>
+                <button onclick="closeInputModal()" class="text-slate-400 hover:text-white bg-slate-800 rounded-full p-2 shadow-sm border border-slate-700 transition-colors">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <div class="p-6 space-y-4">
+                <div id="input-fields-container" class="space-y-4">
+                    <!-- Fields injected dynamically by JS -->
+                </div>
+            </div>
+            <div class="p-6 pt-0 flex gap-3">
+                <button onclick="closeInputModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded-lg py-2.5 px-3 text-sm font-bold transition-all">Cancel</button>
+                <button onclick="submitInputModal()" class="flex-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/50 rounded-lg py-2.5 px-3 text-sm font-bold transition-all">Confirm</button>
+            </div>
+        </div>
+    </div>
 
 
     <script>
