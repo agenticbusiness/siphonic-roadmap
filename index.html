@@ -3,939 +3,592 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Siphonic Master Canvas | Spatial OS</title>
+    <title>Siphonic Spatial Flow Builder</title>
+    <!-- Tailwind & Icons -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Three.js + Extensions -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/renderers/CSS3DRenderer.js"></script>
+    
+    <!-- Supabase for CRM Integration -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&display=swap');
-
-        body {
-            margin: 0;
-            overflow: hidden;
+        body { 
+            margin: 0; 
+            overflow: hidden; 
             background-color: #020617; 
-            font-family: 'Inter', sans-serif;
-            color: #f8fafc;
+            font-family: 'Inter', sans-serif; 
             user-select: none;
         }
-
-        /* High-Fidelity Photorealistic Background */
+        
+        #webgl-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+        #css-container { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 2; }
+        
+        /* Deep Atmospheric Background */
         .ambient-bg {
-            position: fixed;
-            inset: 0;
-            z-index: -2;
-            background: radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.15), transparent 25%),
-                        radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%),
-                        radial-gradient(circle at 50% 80%, rgba(52, 211, 153, 0.1), transparent 25%);
+            position: fixed; inset: 0; z-index: 0;
+            background: radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.15), transparent 35%),
+                        radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 35%),
+                        radial-gradient(circle at 50% 90%, rgba(52, 211, 153, 0.1), transparent 30%);
             filter: blur(60px);
-            transition: background 0.5s ease;
         }
-
-        .noise-overlay {
-            position: fixed;
-            inset: 0;
-            z-index: -1;
-            opacity: 0.03;
-            background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
-        }
-
-        .glass-panel {
-            background: rgba(15, 23, 42, 0.4);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.05);
-        }
-
-        .glass-card {
-            background: linear-gradient(145deg, rgba(30, 41, 59, 0.7), rgba(15, 23, 42, 0.8));
-            border: 1px solid rgba(255, 255, 255, 0.05);
-            box-shadow: 0 10px 30px -10px rgba(0,0,0,0.5);
-            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
-        }
-
-        .glass-card:hover {
-            transform: translateY(-5px) scale(1.02);
-            border-color: rgba(255, 255, 255, 0.2);
-            box-shadow: 0 20px 40px -10px rgba(0,0,0,0.7), 0 0 20px rgba(56, 189, 248, 0.1);
-        }
-
-        .glow-text {
-            text-shadow: 0 0 15px rgba(255, 255, 255, 0.3);
-        }
-
-        #viewport {
-            width: 100vw;
-            height: 100vh;
-            cursor: grab;
+        
+        /* High-Fidelity Glassmorphism Nodes */
+        .flow-node {
+            width: 280px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            border-radius: 16px;
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.1);
+            color: white;
             position: relative;
+            cursor: grab;
+            transition: border-color 0.2s, box-shadow 0.2s;
         }
-        #viewport:active {
-            cursor: grabbing;
+        .flow-node:active { 
+            cursor: grabbing; 
+            border-color: rgba(56, 189, 248, 0.8); 
+            box-shadow: 0 15px 50px -10px rgba(0,0,0,0.9), 0 0 20px rgba(56, 189, 248, 0.2);
         }
-        #canvas {
-            transform-origin: 0 0;
-            padding: 100px;
-            display: inline-block;
-            min-width: max-content;
-            transition: transform 0.05s linear;
+        .flow-node.note {
+            background: rgba(251, 191, 36, 0.1);
+            border-color: rgba(251, 191, 36, 0.4);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.05);
         }
-
-        /* Custom scrollbar for AI result area */
-        .ai-scroll::-webkit-scrollbar { width: 4px; }
-        .ai-scroll::-webkit-scrollbar-track { background: transparent; }
-        .ai-scroll::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
-
-        /* Tab Switcher Styles */
-        .tab-btn {
-            transition: all 0.3s ease;
+        .flow-node.crm {
+            background: rgba(16, 185, 129, 0.1);
+            border-color: rgba(16, 185, 129, 0.5);
+            box-shadow: 0 10px 40px -10px rgba(0,0,0,0.9), inset 0 1px 1px rgba(255,255,255,0.05);
         }
-        .tab-active {
-            background: rgba(56, 189, 248, 0.15);
-            border-color: rgba(56, 189, 248, 0.4);
-            color: #38bdf8;
-            box-shadow: inset 0 0 10px rgba(56, 189, 248, 0.1);
+        
+        /* Connection Ports */
+        .port {
+            position: absolute;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            cursor: crosshair;
+            border: 3px solid #0f172a;
+            z-index: 10;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
-        .tab-inactive {
-            background: transparent;
-            border-color: transparent;
-            color: #94a3b8;
+        .port:hover { 
+            transform: translateY(-50%) scale(1.4); 
         }
-        .tab-inactive:hover {
-            color: #e2e8f0;
-            background: rgba(255,255,255,0.05);
+        .port.input-port { 
+            left: -8px; 
+            background: #a855f7; 
+            box-shadow: 0 0 10px rgba(168, 85, 247, 0.6);
         }
+        .port.output-port { 
+            right: -8px; 
+            background: #38bdf8; 
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.6);
+        }
+        
+        /* Overlay UI */
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10; pointer-events: none; }
+        .pointer-auto { pointer-events: auto; }
+        
+        /* Custom Scrollbar for Textareas */
+        textarea::-webkit-scrollbar { width: 4px; }
+        textarea::-webkit-scrollbar-track { background: transparent; }
+        textarea::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
     </style>
 </head>
 <body>
-
-    <!-- Ambient Backgrounds -->
-    <div class="ambient-bg" id="ambient-bg"></div>
-    <div class="noise-overlay"></div>
-
-    <!-- Top Navigation Bar -->
-    <div class="fixed top-0 left-0 right-0 z-50 bg-slate-900/80 backdrop-blur-md border-b border-slate-700/50 flex items-center justify-between px-6 py-3 shadow-lg h-16">
-        
-        <!-- Left: Branding & Tabs -->
-        <div class="flex items-center gap-6">
-            <div class="flex items-center gap-3">
-                <i data-lucide="command" class="text-sky-400 w-6 h-6"></i>
-                <div class="flex flex-col">
-                    <h1 class="text-xl font-black tracking-tight text-white glow-text leading-none">Siphonic OS</h1>
-                    <span id="canvas-subtitle" class="text-slate-400 text-[10px] font-semibold tracking-widest uppercase mt-0.5">Logic Alignment Master Canvas</span>
-                </div>
-            </div>
+    <!-- Background -->
+    <div class="ambient-bg"></div>
+    <div class="fixed inset-0 z-0 opacity-[0.02]" style="background-image: url('data:image/svg+xml,%3Csvg viewBox=\'0 0 200 200\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cfilter id=\'noiseFilter\'%3E%3CfeTurbulence type=\'fractalNoise\' baseFrequency=\'0.65\' numOctaves=\'3\' stitchTiles=\'stitch\'/%3E%3C/filter%3E%3Crect width=\'100%25\' height=\'100%25\' filter=\'url(%23noiseFilter)\'/%3E%3C/svg%3E');"></div>
+    
+    <!-- Render Layers -->
+    <div id="webgl-container"></div>
+    <div id="css-container"></div>
+    
+    <!-- Static UI Overlay -->
+    <div id="ui-layer" class="flex flex-col justify-between p-6">
+        <div class="flex justify-between items-start">
             
-            <div class="h-6 w-px bg-slate-700"></div>
-            
-            <!-- VIEW TABS -->
-            <div class="flex p-1 bg-slate-950/60 rounded-lg border border-slate-700/50">
-                <button onclick="switchTab('roadmap')" id="tab-roadmap" class="tab-btn tab-active flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                    <i data-lucide="calendar" class="w-3.5 h-3.5"></i> Execution Roadmap
-                </button>
-                <button onclick="switchTab('streams')" id="tab-streams" class="tab-btn tab-inactive flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider">
-                    <i data-lucide="git-merge" class="w-3.5 h-3.5"></i> Business Streams
-                </button>
-            </div>
-            
-            <div class="h-6 w-px bg-slate-700 hidden lg:block"></div>
-            
-            <!-- LEGEND -->
-            <div class="hidden lg:flex gap-4">
-                <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]"></div>
-                    <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Brennan</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.8)]"></div>
-                    <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Mia</span>
-                </div>
-                <div class="flex items-center gap-1.5">
-                    <div class="w-2 h-2 rounded-full bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]"></div>
-                    <span class="text-[10px] font-medium text-slate-400 uppercase tracking-wider">Outsourced / AI</span>
-                </div>
-            </div>
-        </div>
-
-        <!-- Right: Tools -->
-        <div class="flex items-center gap-4">
-            <!-- Zoom Slider -->
-            <div class="flex items-center gap-2 bg-slate-950/50 px-3 py-1.5 rounded-lg border border-slate-800">
-                <i data-lucide="zoom-out" class="w-3.5 h-3.5 text-slate-500"></i>
-                <input type="range" id="zoom-slider" min="0.1" max="2" step="0.05" value="1" class="w-24 accent-sky-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer">
-                <i data-lucide="zoom-in" class="w-3.5 h-3.5 text-slate-500"></i>
-            </div>
-            <div class="text-[10px] text-slate-500 font-medium hidden xl:block text-right leading-tight">
-                <span class="text-slate-300">Ctrl+Scroll</span> Zoom <br/>
-                <span class="text-slate-300">Click & Drag</span> Pan
-            </div>
-            <div class="h-6 w-px bg-slate-700"></div>
-            <div class="flex gap-1">
-                <button onclick="undoAction()" class="p-1.5 hover:bg-slate-800 rounded transition text-slate-400 hover:text-white" title="Undo Last Action" id="undo-btn" style="opacity: 0.5; pointer-events: none;">
-                    <i data-lucide="undo-2" class="w-4 h-4"></i>
-                </button>
-                <button onclick="exportManifest()" class="p-1.5 hover:bg-emerald-500/20 rounded transition text-emerald-500 hover:text-emerald-400" title="Sync Evolution Ledger">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                </button>
-                <button onclick="resetView()" class="p-1.5 hover:bg-slate-800 rounded transition text-slate-400 hover:text-white" title="Reset View">
-                    <i data-lucide="maximize" class="w-4 h-4"></i>
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Interactive Canvas Viewport -->
-    <div id="viewport">
-        <div id="canvas" class="flex flex-col items-center">
-            
-            <div class="glass-panel px-16 py-8 rounded-[2rem] text-center mb-16 relative z-10 border-t border-t-sky-400/30" id="anchor-node">
-                <div class="absolute -top-px left-1/4 right-1/4 h-px bg-gradient-to-r from-transparent via-sky-400 to-transparent shadow-[0_0_15px_rgba(56,189,248,1)]"></div>
-                <h2 class="text-5xl font-black tracking-[0.2em] uppercase text-white glow-text mb-2">Siphonic</h2>
-                <div id="anchor-badge" class="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-sky-500/10 border border-sky-500/20 text-sky-400 text-sm font-semibold tracking-wider">
-                    <i data-lucide="shield-check" class="w-4 h-4"></i> LOGIC ALIGNMENT VERIFIED
-                </div>
-            </div>
-
-            <!-- Columns Container -->
-            <div id="grid-container" class="flex gap-8 items-start pb-32">
-                <!-- Injected via JS -->
-            </div>
-
-        </div>
-    </div>
-
-    <!-- Modal Overlay -->
-    <div id="task-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden border border-slate-700 transform scale-95 transition-transform duration-200 flex flex-col max-h-[90vh]" id="modal-content-box">
-            <div class="p-6 border-b border-slate-800 flex justify-between items-start bg-slate-900/50">
-                <div class="pr-8">
-                    <span id="modal-branch" class="text-xs font-black uppercase tracking-widest text-sky-400 block mb-2">Branch</span>
-                    <h3 id="modal-title" class="font-bold text-xl leading-snug text-white glow-text">Task Title</h3>
-                </div>
-                <button onclick="closeModal()" class="text-slate-400 hover:text-white bg-slate-800 rounded-full p-2 shadow-sm border border-slate-700 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            
-            <div class="p-6 space-y-5 overflow-y-auto ai-scroll">
-                <div class="bg-slate-800/50 p-4 rounded-xl border border-slate-700">
-                    <p id="modal-desc" class="text-sm text-slate-300 leading-relaxed font-medium whitespace-pre-wrap">Task details go here...</p>
+            <!-- Left: Brand & Spawn Controls -->
+            <div class="flex items-center gap-6 pointer-auto">
+                <div class="bg-slate-900/80 backdrop-blur-md border border-slate-700 p-4 rounded-2xl flex items-center gap-4 shadow-xl">
+                    <div class="p-2 bg-sky-500/10 rounded-lg border border-sky-500/20">
+                        <i data-lucide="network" class="text-sky-400 w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <h1 class="text-white font-black tracking-widest uppercase leading-none glow-text text-lg">Spatial OS</h1>
+                        <span class="text-slate-400 text-[10px] uppercase font-bold tracking-[0.2em] mt-1 block">Architecture Graph</span>
+                    </div>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-4">
-                    <div class="flex flex-col gap-1.5 p-3 rounded-lg border border-slate-800 bg-slate-900/50">
-                        <span class="text-xs text-slate-500 font-bold uppercase tracking-wider">Assigned To</span>
-                        <div id="modal-owner-box" class="flex items-center gap-2">
-                            <span id="modal-owner-name" class="font-bold text-sm text-white">Owner Name</span>
-                        </div>
-                    </div>
-                    <div class="flex flex-col gap-1.5 p-3 rounded-lg border border-slate-800 bg-slate-900/50">
-                        <span class="text-xs text-slate-500 font-bold uppercase tracking-wider">Timeline / Phase</span>
-                        <span class="font-bold text-white flex items-center gap-1.5 text-sm">
-                            <i data-lucide="clock" class="w-4 h-4 text-sky-400"></i>
-                            <span id="modal-month">Month</span>
-                        </span>
-                    </div>
-                </div>
-
-                <!-- Gemini API Integration Section -->
-                <div class="mt-6 pt-5 border-t border-slate-800">
-                    <div class="flex items-center gap-2 mb-3">
-                        <i data-lucide="sparkles" class="w-4 h-4 text-purple-400"></i>
-                        <span class="text-xs text-slate-400 font-bold uppercase tracking-wider">AI Copilot</span>
-                    </div>
-                    
-                    <div class="flex gap-3">
-                        <button onclick="generateTaskBreakdown()" class="flex-1 bg-indigo-500/10 hover:bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 rounded-lg py-2.5 px-3 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
-                            ✨ Break Down Target
-                        </button>
-                        <button onclick="generatePitchDraft()" class="flex-1 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-lg py-2.5 px-3 text-xs font-bold transition-all flex items-center justify-center gap-1.5">
-                            ✨ Draft Pitch/Comm
-                        </button>
-                    </div>
-
-                    <!-- AI Result Container -->
-                    <div id="ai-result-wrapper" class="hidden mt-4 bg-slate-950 rounded-xl p-4 border border-slate-800 shadow-inner">
-                        <div id="ai-loading" class="hidden flex items-center gap-2 text-sm text-slate-400 font-medium">
-                            <i data-lucide="loader-2" class="w-4 h-4 animate-spin text-sky-400"></i> ✨ AI is thinking...
-                        </div>
-                        <div id="ai-result-content" class="text-sm text-slate-300 leading-relaxed ai-scroll max-h-48 overflow-y-auto"></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Input Modal Overlay -->
-    <div id="input-modal" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-[60] hidden items-center justify-center p-4 opacity-0 transition-opacity duration-200">
-        <div class="bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden border border-slate-700 transform scale-95 transition-transform duration-200 flex flex-col" id="input-modal-content">
-            <div class="p-6 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
-                <h3 id="input-modal-title" class="font-bold text-lg leading-snug text-white glow-text">Enter Details</h3>
-                <button onclick="closeInputModal()" class="text-slate-400 hover:text-white bg-slate-800 rounded-full p-2 shadow-sm border border-slate-700 transition-colors">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
-            </div>
-            <div class="p-6 space-y-4">
-                <div id="input-fields-container" class="space-y-4">
-                    <!-- Fields injected dynamically by JS -->
-                </div>
-            </div>
-            <div class="p-6 pt-0 flex gap-3">
-                <button onclick="closeInputModal()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-600 rounded-lg py-2.5 px-3 text-sm font-bold transition-all">Cancel</button>
-                <button onclick="submitInputModal()" class="flex-1 bg-sky-500/20 hover:bg-sky-500/30 text-sky-400 border border-sky-500/50 rounded-lg py-2.5 px-3 text-sm font-bold transition-all">Confirm</button>
-            </div>
-        </div>
-    </div>
-
-
-    <script>
-        // --- GLOBAL OWNERS ---
-        let OWNERS = {
-            brennan: { name: 'Brennan', dot: 'bg-sky-400 shadow-[0_0_8px_rgba(56,189,248,0.8)]' },
-            mia: { name: 'Mia', dot: 'bg-fuchsia-400 shadow-[0_0_8px_rgba(232,121,249,0.8)]' },
-            outsourced: { name: 'Outsourced/AI', dot: 'bg-amber-400 shadow-[0_0_8px_rgba(251,191,36,0.8)]' }
-        };
-
-        // ==========================================
-        // DATASET 1: EXECUTION ROADMAP (6-MONTH)
-        // ==========================================
-        let ROADMAP_ROWS = [
-            { id: 'm1', name: 'Month 1' },
-            { id: 'm2', name: 'Month 2' },
-            { id: 'm3', name: 'Month 3' },
-            { id: 'm4', name: 'Month 4' },
-            { id: 'm5', name: 'Month 5' },
-            { id: 'm6', name: 'Month 6' },
-            { id: 'm_ongoing', name: 'Sustained Growth', sub: 'Daily / Wkly / Mo' }
-        ];
-
-        let ROADMAP_COLS = [
-            { id: 'software', name: 'AI Design Platform', sub: 'Software & Logic', accent: 'border-indigo-500/30' },
-            { id: 'engineering', name: 'Eng. Codes & Validation', sub: 'The Master Truth', accent: 'border-violet-500/30' },
-            { id: 'data', name: 'Data Supremacy & OSINT', sub: 'The Invisible Hand', accent: 'border-teal-500/30' },
-            { id: 'regulatory', name: 'Regulatory & ESG', sub: 'The Trojan Horse', accent: 'border-emerald-500/30' },
-            { id: 'sales', name: 'Vanguard Pods', sub: 'Internal Sales Engine', accent: 'border-slate-500/30' },
-            { id: 'network', name: 'National Network', sub: 'External Alliances', accent: 'border-blue-500/30' },
-            { id: 'logistics', name: 'Field & Supply Chain', sub: 'Logistics Arbitrage', accent: 'border-sky-500/30' },
-            { id: 'expansion', name: 'Product Expansion', sub: 'Hardware & Civil Works', accent: 'border-rose-500/30' }
-        ];
-
-        let ROADMAP_TASKS = [
-            // Month 1
-            { id: 't1', rowId: 'm1', colId: 'software', ownerId: 'outsourced', title: 'Repo 0 & Revit API', desc: 'Auto-scans PDF Master Schedules via OCR (pdfminer/cv2) to map building height, existing gravity routes, and civil tap boundaries.' },
-            { id: 't6', rowId: 'm1', colId: 'engineering', ownerId: 'brennan', title: 'The Master Truth Test Rig', desc: 'Building a physical test rig to establish the absolute truth of flow rates against legacy gravity competitors.' },
-            { id: 't10', rowId: 'm1', colId: 'data', ownerId: 'outsourced', title: 'OSINT CRM & LinkedIn', desc: 'Tracking IPs and social media scrapes to map architect influence and create recursive social avatars for HR development.' },
-            { id: 't14', rowId: 'm1', colId: 'regulatory', ownerId: 'brennan', title: 'ASSE 7-22 Weaponization', desc: 'Drafting the whitepaper using the ASPE 2012/2024 studies to mathematically prove gravity drains cannot handle structural load limits safely.' },
-            { id: 't18', rowId: 'm1', colId: 'sales', ownerId: 'brennan', title: '"Rain Stick" Trojan Horse', desc: 'Mailing Facility Managers water-activated PVC sticks that permanently mark worst-case ponding depth.' },
-            { id: 't22', rowId: 'm1', colId: 'network', ownerId: 'brennan', title: 'Legacy Wholesaler Reconnect', desc: 'Dedicating Year 1 to stability, systematizing current wholesale accounts before chasing blind growth.' },
-            { id: 't26', rowId: 'm1', colId: 'logistics', ownerId: 'outsourced', title: 'App-less QR Field UI', desc: 'Subcontractors scan QR, take GPS selfie, input pipe length change. AI auto-runs Repo 6 to verify physics for PE stamp.' },
-            { id: 't30', rowId: 'm1', colId: 'expansion', ownerId: 'brennan', title: 'Hardware Innovations', desc: 'Manufacturing 3", 4", 6" OEM siphonic drains. Developing Podium Green Roof drains and PVC Condensate Roof Runners.' },
-
-            // Month 2
-            { id: 't2', rowId: 'm2', colId: 'software', ownerId: 'outsourced', title: 'Repo 2/3: NOAA Throttling', desc: 'Implements the logic to mathematically inflate the local NOAA rainfall rate up to 105% to safely force the 23 GPM minimum.' },
-            { id: 't7', rowId: 'm2', colId: 'engineering', ownerId: 'brennan', title: 'AISC/SJI Design Guide 40', desc: 'Bridges ASCE 7-22 rain loads with steel capacity. Calculates exactly how much extra structural steel is needed if water weight deflects the roof.' },
-            { id: 't11', rowId: 'm2', colId: 'data', ownerId: 'outsourced', title: 'Universal Commerce Protocol', desc: 'Structuring JSON/XML 20-shot image panels to achieve AEO (Agent Engine Optimization).' },
-            { id: 't15', rowId: 'm2', colId: 'regulatory', ownerId: 'mia', title: '"Code Default" Sub-Consultant', desc: 'Operating as a private-label sub-consultant to GCs. Bypasses the multi-state lien requirement and wholesale 2% float for VE jobs.' },
-            { id: 't_net_m2', rowId: 'm2', colId: 'network', ownerId: 'brennan', title: 'Target Sector Specialists', desc: 'Deploy James Dipping (META/Google Data Centers), Aaron Tilburg (Midwest), Joe Brewer (Houston), Catherine/Ashley (NY/NJ Port Authority), Gus (Owner\'s Reps).' },
-
-            // Month 3
-            { id: 't_sw_m3', rowId: 'm3', colId: 'software', ownerId: 'brennan', title: 'Water Dam & Gravity Failure Engine', desc: 'Proves gravity has no real calculations. Forces overflow dam height to handle 100-year storms and nuisance engagements safely.' },
-            { id: 't8', rowId: 'm3', colId: 'engineering', ownerId: 'outsourced', title: 'MSS SP-58 & CISPI 310-20', desc: 'Automates the precise hanger spacing, rod sizing, and lateral/longitudinal thrust bracing requirements for the PE stamp.' },
-
-            // Month 4
-            { id: 't4', rowId: 'm4', colId: 'software', ownerId: 'outsourced', title: 'Repo 7: Trombone Balancing', desc: 'Uses ASPE 45 rules. Allows vertical pipe reduction (e.g., 4" to 3"). Auto-injects "dog legs" and U-loops if out of tolerance.' },
-            { id: 't_data_m4', rowId: 'm4', colId: 'data', ownerId: 'mia', title: 'Retailer & Rep Line Tracking', desc: 'Map online retailers with no physical stores to find distribution pockets, and track independent MFG reps jumping lines over the years.' },
-            { id: 't_sales_m4', rowId: 'm4', colId: 'sales', ownerId: 'brennan', title: 'Logistics & Stadium Verticals', desc: 'Target FedEx, DHL, UPS. Deploy Henderson team for Stadiums, Sir team for Nashville, Meg/Sol for Denver.' },
-
-            // Month 5
-            { id: 't5', rowId: 'm5', colId: 'software', ownerId: 'brennan', title: 'Repo 11: Civil Arbitrage ROI', desc: 'Calculates precise savings of 600ft sloped trenches, machinery, labor hours, and massive rentable chase space recovery.' },
-            { id: 't9', rowId: 'm5', colId: 'engineering', ownerId: 'brennan', title: 'Universal CSI Spec', desc: 'Generating the definitive, highly technical written CSI specification to secure formal sign-offs from heavy-hitters like Stantec, ARUP, iMEG.' },
-            { id: 't29', rowId: 'm5', colId: 'logistics', ownerId: 'brennan', title: 'Q4 Surplus Marketplace', desc: 'Using UCP data to buy dead wholesale inventory from VPs chasing Q4 bonuses at 10¢ on the dollar, flipping to network at 40-50¢.' },
-            { id: 't_exp_m5', rowId: 'm5', colId: 'expansion', ownerId: 'brennan', title: 'Untouched Qubit Supply Chain', desc: 'Use environmental civil works and fog harvesting to provide massive hydrogen cooling infrastructure for Qubit data centers.' },
-
-            // Month 6
-            { id: 't33', rowId: 'm6', colId: 'expansion', ownerId: 'mia', title: 'Eco-Rubber Parking Curbs', desc: 'Selling McDonald\'s custom eco-rubber curbs (solving Midwest snowplow concrete chipping) out of capital expense budgets for branding.' }
-        ];
-
-        // ==========================================
-        // DATASET 2: BUSINESS STREAMS (LIFECYCLE)
-        // ==========================================
-        let STREAM_ROWS = [
-            { id: 'setup', name: 'Process to Achieve', sub: 'Development & Setup' },
-            { id: 'achieve', name: 'Achievement / Trigger', sub: 'Milestone Locked' },
-            { id: 'sustain', name: 'Keep it Revolving', sub: 'Sustained Operations' }
-        ];
-
-        let STREAM_COLS = [
-            { id: 've_stream', name: 'Code Default / VE', sub: 'Commercial Siphonic', accent: 'border-fuchsia-500/30' },
-            { id: 'srv_stream', name: 'Wholesale & Logistics', sub: 'Service Contractor Layer', accent: 'border-sky-500/30' },
-            { id: 'saas_stream', name: 'Data Supremacy (SaaS)', sub: 'Backend Intelligence', accent: 'border-teal-500/30' },
-            { id: 'mep_stream', name: 'Horizontal MEP & Civil', sub: 'Expanded Contracting', accent: 'border-rose-500/30' },
-            { id: 'ins_stream', name: 'AI Insurance Agency', sub: 'Regulatory Capture', accent: 'border-emerald-500/30' },
-            { id: 'bot_stream', name: 'Autonomous Robotics', sub: 'Consumer Delivery & Wi-Fi', accent: 'border-indigo-500/30' }
-        ];
-
-        let STREAM_TASKS = [
-            // Code Default / VE Stream
-            { id: 's1', rowId: 'setup', colId: 've_stream', ownerId: 'mia', title: 'Establish Legal Entity', desc: 'Set up Code Default as a private-label sub-consultant to bypass traditional wholesale 2% float and multi-state lien requirements.' },
-            { id: 's2', rowId: 'achieve', colId: 've_stream', ownerId: 'brennan', title: 'Win Major GC VE Spec', desc: 'Capture a massive Value Engineering job (e.g., Amazon/Walmart) directly from the GC using structural savings math.' },
-            { id: 's3', rowId: 'sustain', colId: 've_stream', ownerId: 'mia', title: 'Direct Supply & Rebates', desc: 'GC pays direct. Code Default supplies materials and PE stamp. Subcontractor provides labor for a written rebate. 3-5 day design turnarounds.' },
-
-            // Wholesale Logistics Stream
-            { id: 's4', rowId: 'setup', colId: 'srv_stream', ownerId: 'outsourced', title: 'Develop Kanban Packouts', desc: 'Design 2-bin QR packout boxes for service plumbers. Stock with common replacement parts and PPE.' },
-            { id: 's5', rowId: 'achieve', colId: 'srv_stream', ownerId: 'mia', title: 'Lock In Service Network', desc: 'Secure 50+ local service contractors onto the consignment program with lump-sum working capital deposits.' },
-            { id: 's6', rowId: 'sustain', colId: 'srv_stream', ownerId: 'brennan', title: 'Milk Runs & Q4 Flipping', desc: 'Wholesalers perform weekly automated milk runs based on QR scans. Buy distressed Q4 MFG inventory at 10¢ on the dollar and flip to this network at 40¢.' },
-
-            // Data SaaS Stream
-            { id: 's7', rowId: 'setup', colId: 'saas_stream', ownerId: 'outsourced', title: 'Build Universal Protocol (UCP)', desc: 'Compile all parts into JSON/XML formats. Deploy Parts Crosser scrapers to defeat CAPTCHAs and map competitor matrices.' },
-            { id: 's8', rowId: 'achieve', colId: 'saas_stream', ownerId: 'outsourced', title: 'Achieve Global AEO', desc: 'Agent Engine Optimization is achieved: Global AI agents natively recommend Everflow/Siphonic USA parts first.' },
-            { id: 's9', rowId: 'sustain', colId: 'saas_stream', ownerId: 'mia', title: 'Sell SaaS to Manufacturers', desc: 'Charge MFGs subscription to view IMAP violations, track online retailers with no physical footprint, and monitor MFG rep line jumping.' },
-
-            // Horizontal MEP Stream
-            { id: 's10', rowId: 'setup', colId: 'mep_stream', ownerId: 'brennan', title: 'Source Hardware Integrations', desc: 'Develop Podium green roof drains, PVC condensate runners, and map requirements for fire protection and radiant heat.' },
-            { id: 's11', rowId: 'achieve', colId: 'mep_stream', ownerId: 'brennan', title: 'Secure Multi-Discipline Job', desc: 'Successfully quote and win a Siphonic job, then immediately bolt on seismic bracing, fire protection, and radiant floor scope.' },
-            { id: 's12', rowId: 'sustain', colId: 'mep_stream', ownerId: 'mia', title: 'Civil & Paving Runoff', desc: 'Continuously bid DOT overpasses and establish water harvesting to fuel Qubit data center cooling infrastructure.' },
-
-            // AI Insurance Stream
-            { id: 's13', rowId: 'setup', colId: 'ins_stream', ownerId: 'brennan', title: 'Underwriting Models', desc: 'Merge ASCE 7-22 structural load limits and NOAA weather data to build an AI risk model proving gravity drains are massive liabilities.' },
-            { id: 's14', rowId: 'achieve', colId: 'ins_stream', ownerId: 'brennan', title: 'Launch Insurance Agency', desc: 'Underwrite first commercial building policies based strictly on the provable physics of the AI design platform.' },
-            { id: 's15', rowId: 'sustain', colId: 'ins_stream', ownerId: 'outsourced', title: 'Automated Risk Monitoring', desc: 'System continuously monitors regional weather APIs against policyholder building specs, mandating siphonic compliance for renewals.' },
-
-            // Consumer Robotics Stream
-            { id: 's16', rowId: 'setup', colId: 'bot_stream', ownerId: 'outsourced', title: 'Develop Delivery & RuView', desc: 'Build diagnostic delivery robots. Homeowners live-stream leaks to trigger robot drop-off instead of human techs.' },
-            { id: 's17', rowId: 'achieve', colId: 'bot_stream', ownerId: 'mia', title: '1,000+ Free Trials Active', desc: 'Robots act as "Amazon Alexas" resolving diagnostics. Users must manually insert physical chip to activate, solving consumer trust.' },
-            { id: 's18', rowId: 'sustain', colId: 'bot_stream', ownerId: 'outsourced', title: 'Stateless Global Vision', desc: 'Robots continuously node-batch connections, tracking ISPs statelessly to feed HASM and Shards, optimizing global dispatch.' }
-        ];
-
-        // --- APP STATE ---
-        let currentTab = 'roadmap';
-        let currentSelectedTaskId = null;
-
-        // --- RENDER ENGINE ---
-        function renderCanvas() {
-            const container = document.getElementById('grid-container');
-            const ambient = document.getElementById('ambient-bg');
-            const subtitle = document.getElementById('canvas-subtitle');
-            const anchorBadge = document.getElementById('anchor-badge');
-            
-            let columns, rows, tasks;
-
-            if (currentTab === 'roadmap') {
-                columns = ROADMAP_COLS;
-                rows = ROADMAP_ROWS;
-                tasks = ROADMAP_TASKS;
-                ambient.style.background = 'radial-gradient(circle at 15% 50%, rgba(56, 189, 248, 0.15), transparent 25%), radial-gradient(circle at 85% 30%, rgba(168, 85, 247, 0.15), transparent 25%), radial-gradient(circle at 50% 80%, rgba(52, 211, 153, 0.1), transparent 25%)';
-                subtitle.innerText = "Logic Alignment Execution Plan";
-                anchorBadge.innerHTML = `<i data-lucide="calendar" class="w-4 h-4"></i> 6-MONTH LAUNCH TIMELINE`;
-            } else {
-                columns = STREAM_COLS;
-                rows = STREAM_ROWS;
-                tasks = STREAM_TASKS;
-                ambient.style.background = 'radial-gradient(circle at 20% 40%, rgba(232, 121, 249, 0.15), transparent 30%), radial-gradient(circle at 80% 60%, rgba(52, 211, 153, 0.12), transparent 30%), radial-gradient(circle at 50% 90%, rgba(56, 189, 248, 0.1), transparent 25%)';
-                subtitle.innerText = "Ecosystem Verticals & Lifecycle";
-                anchorBadge.innerHTML = `<i data-lucide="git-merge" class="w-4 h-4"></i> BUSINESS INCUBATION TRACKS`;
-            }
-
-            let html = '';
-
-            columns.forEach(col => {
-                html += `
-                <div class="w-[380px] flex-shrink-0 flex flex-col gap-6">
-                    <div class="glass-panel p-6 rounded-2xl border-t-2 ${col.accent} relative overflow-hidden group">
-                        <div class="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-                        <h3 class="font-bold text-lg text-white tracking-wide glow-text">${col.name}</h3>
-                        <p class="text-xs text-sky-400/80 uppercase tracking-widest font-semibold mt-1">${col.sub}</p>
-                    </div>
-                `;
-
-                rows.forEach(row => {
-                    const cellTasks = tasks.filter(t => t.rowId === row.id && t.colId === col.id);
-                    const isSpecialRow = row.id === 'm_ongoing' || row.id === 'sustain';
-                    const iconColor = isSpecialRow ? 'bg-emerald-400' : 'bg-sky-400';
-                    const textColor = isSpecialRow ? 'text-emerald-400' : 'text-slate-400';
-                    
-                    html += `
-                    <div class="relative pl-4 border-l border-slate-700/50 ml-4 pb-4">
-                        <div class="absolute -left-2 top-0 w-4 h-4 rounded-full bg-slate-900 border-2 border-slate-600 shadow-[0_0_10px_rgba(0,0,0,0.5)] z-10 flex items-center justify-center">
-                            <div class="w-1.5 h-1.5 rounded-full ${iconColor}"></div>
-                        </div>
-                        <div class="-mt-1.5 mb-4 pl-2">
-                            <span class="text-xs font-black uppercase tracking-widest ${textColor}">${row.name}</span>
-                            ${row.sub ? `<span class="text-[10px] block text-slate-500 uppercase tracking-wider mt-0.5">${row.sub}</span>` : ''}
-                        </div>
-                        <div class="space-y-4">
-                    `;
-
-                    cellTasks.forEach(task => {
-                        const owner = OWNERS[task.ownerId];
-                        html += `
-                            <div onclick="openModal('${task.id}')" class="glass-card p-5 rounded-xl cursor-pointer group">
-                                <h4 class="font-bold text-sm text-white mb-2 leading-snug group-hover:text-sky-300 transition-colors">${task.title}</h4>
-                                <p class="text-xs text-slate-400 leading-relaxed mb-4 line-clamp-3">${task.desc}</p>
-                                <div class="flex items-center gap-2 pt-3 border-t border-slate-700/50">
-                                    <div class="w-2 h-2 rounded-full ${owner.dot}"></div>
-                                    <span class="text-[10px] uppercase tracking-wider font-semibold text-slate-400">${owner.name}</span>
-                                </div>
-                            </div>
-                        `;
-                    });
-
-                    html += `
-                            <button onclick="promptAddNode('${col.id}', '${row.id}')" class="w-full py-3 rounded-xl border border-dashed border-slate-700/50 text-slate-500 hover:text-sky-400 hover:border-sky-500/30 hover:bg-sky-500/5 transition-all flex items-center justify-center gap-2 text-xs font-bold uppercase tracking-wider">
-                                <i data-lucide="plus" class="w-4 h-4"></i> Add Node
-                            </button>
-                        </div>
-                    </div>
-                    `;
-                });
-
-                html += `</div>`;
-            });
-
-            // "Add New Column" Ghost Column
-            const addText = currentTab === 'roadmap' ? 'Add Execution Branch' : 'Add Business Stream';
-            html += `
-                <div class="w-[380px] flex-shrink-0 flex flex-col items-center justify-start pt-6 h-full min-h-[500px]">
-                    <button onclick="promptAddColumn()" class="glass-panel w-full h-full rounded-2xl border-2 border-dashed border-slate-700/50 hover:border-sky-500/50 hover:bg-sky-500/5 flex flex-col items-center justify-center gap-4 text-slate-500 hover:text-sky-400 transition-all group min-h-[300px]">
-                        <div class="w-12 h-12 rounded-full bg-slate-800/80 flex items-center justify-center group-hover:scale-110 transition-transform shadow-lg">
-                            <i data-lucide="layers" class="w-6 h-6"></i>
-                        </div>
-                        <span class="text-sm font-black uppercase tracking-widest">${addText}</span>
+                <div class="flex gap-3">
+                    <button onclick="addNode('component')" class="bg-slate-900/80 backdrop-blur hover:bg-slate-800 text-sky-400 border border-slate-700 hover:border-sky-500/50 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg group">
+                        <i data-lucide="plus-square" class="w-4 h-4 group-hover:scale-110 transition-transform"></i> Add Component
+                    </button>
+                    <button onclick="addNode('note')" class="bg-slate-900/80 backdrop-blur hover:bg-slate-800 text-amber-400 border border-slate-700 hover:border-amber-500/50 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg group">
+                        <i data-lucide="sticky-note" class="w-4 h-4 group-hover:scale-110 transition-transform"></i> Add Note
+                    </button>
+                    <button onclick="addNode('crm')" class="bg-emerald-900/40 backdrop-blur hover:bg-emerald-800/60 text-emerald-400 border border-emerald-700/50 hover:border-emerald-500 px-4 py-3 rounded-xl text-xs font-bold uppercase tracking-wider flex items-center gap-2 transition-all shadow-lg group">
+                        <i data-lucide="users" class="w-4 h-4 group-hover:scale-110 transition-transform"></i> Tag CRM Entity
                     </button>
                 </div>
-            `;
-
-            container.innerHTML = html;
-            lucide.createIcons();
-        }
-
-        // --- TAB SWITCHER LOGIC ---
-        function switchTab(tabId) {
-            currentTab = tabId;
+            </div>
             
-            const btnRoadmap = document.getElementById('tab-roadmap');
-            const btnStreams = document.getElementById('tab-streams');
+            <!-- Right: 3D View Toggle Button -->
+            <div class="pointer-auto relative group">
+                <div class="absolute -inset-1 bg-gradient-to-r from-indigo-500 to-sky-500 rounded-2xl blur opacity-20 group-hover:opacity-40 transition duration-500"></div>
+                <button onclick="toggleView()" id="view-toggle-btn" class="relative bg-slate-900/90 backdrop-blur-md border border-slate-700 p-4 rounded-2xl flex items-center gap-4 transition-all shadow-2xl hover:border-indigo-500/50">
+                    <div class="p-2 bg-indigo-500/10 rounded-lg border border-indigo-500/30" id="view-icon-wrapper">
+                        <i data-lucide="box" id="view-icon" class="w-6 h-6 text-indigo-400 transition-transform duration-500"></i>
+                    </div>
+                    <div class="text-left w-36">
+                        <div class="text-[10px] text-slate-500 font-bold uppercase tracking-widest leading-none mb-1.5">Camera Mode</div>
+                        <div id="view-label" class="text-sm font-black text-white uppercase tracking-wider leading-none">2D Top Profile</div>
+                    </div>
+                </button>
+            </div>
 
-            if(tabId === 'roadmap') {
-                btnRoadmap.className = "tab-btn tab-active flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider";
-                btnStreams.className = "tab-btn tab-inactive flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider";
-            } else {
-                btnStreams.className = "tab-btn tab-active flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider";
-                btnRoadmap.className = "tab-btn tab-inactive flex items-center gap-2 px-3 py-1.5 rounded text-[10px] font-bold uppercase tracking-wider";
-            }
-            
-            resetView();
-            renderCanvas();
-        }
-
-        // --- MODAL & UI LOGIC ---
-        const modal = document.getElementById('task-modal');
-        const modalContent = document.getElementById('modal-content-box');
-
-        function openModal(taskId) {
-            currentSelectedTaskId = taskId;
-            
-            let task, col, row;
-            if(currentTab === 'roadmap') {
-                task = ROADMAP_TASKS.find(t => t.id === taskId);
-                col = ROADMAP_COLS.find(c => c.id === task.colId);
-                row = ROADMAP_ROWS.find(r => r.id === task.rowId);
-            } else {
-                task = STREAM_TASKS.find(t => t.id === taskId);
-                col = STREAM_COLS.find(c => c.id === task.colId);
-                row = STREAM_ROWS.find(r => r.id === task.rowId);
-            }
-            
-            const owner = OWNERS[task.ownerId];
-
-            document.getElementById('modal-branch').innerText = col.name;
-            document.getElementById('modal-title').innerText = task.title;
-            document.getElementById('modal-desc').innerText = task.desc;
-            document.getElementById('modal-owner-name').innerText = owner.name;
-            document.getElementById('modal-month').innerText = row.name;
-            
-            document.getElementById('ai-result-wrapper').classList.add('hidden');
-            document.getElementById('ai-result-content').innerHTML = '';
-            
-            lucide.createIcons(); 
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-            setTimeout(() => {
-                modal.classList.remove('opacity-0');
-                modalContent.classList.remove('scale-95');
-                modalContent.classList.add('scale-100');
-            }, 10);
-        }
-
-        function closeModal() {
-            currentSelectedTaskId = null;
-            modal.classList.add('opacity-0');
-            modalContent.classList.remove('scale-100');
-            modalContent.classList.add('scale-95');
-            setTimeout(() => {
-                modal.classList.add('hidden');
-                modal.classList.remove('flex');
-            }, 200);
-        }
-
-        modal.addEventListener('click', (e) => {
-            if(e.target === modal) closeModal();
-        });
-
-        // --- GEMINI API INTEGRATION ---
-        const apiKey = ""; 
-
-        async function fetchGeminiWithRetry(prompt, retries = 5) {
-            const delays = [1000, 2000, 4000, 8000, 16000];
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
-            const payload = {
-                contents: [{ parts: [{ text: prompt }] }],
-                systemInstruction: { parts: [{ text: "You are an AI Co-pilot for Siphonic USA, an innovative plumbing and engineering firm disrupting the commercial construction market. Provide concise, high-value, tactical responses." }] }
-            };
-
-            for (let i = 0; i < retries; i++) {
-                try {
-                    const response = await fetch(url, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-                    const data = await response.json();
-                    return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
-                } catch (error) {
-                    if (i === retries - 1) return `Error: Could not connect to AI. Please try again later.`;
-                    await new Promise(resolve => setTimeout(resolve, delays[i]));
-                }
-            }
-        }
-
-        function showAILoading() {
-            const wrapper = document.getElementById('ai-result-wrapper');
-            const loading = document.getElementById('ai-loading');
-            const content = document.getElementById('ai-result-content');
-            
-            wrapper.classList.remove('hidden');
-            loading.classList.remove('hidden');
-            loading.classList.add('flex');
-            content.innerHTML = '';
-        }
-
-        function displayAIResult(text) {
-            const loading = document.getElementById('ai-loading');
-            const content = document.getElementById('ai-result-content');
-            
-            loading.classList.add('hidden');
-            loading.classList.remove('flex');
-            
-            const formattedText = text.replace(/\*\*(.*?)\*\*/g, '<strong class="text-white">$1</strong>');
-            content.innerHTML = formattedText;
-        }
-
-        async function generateTaskBreakdown() {
-            if (!currentSelectedTaskId) return;
-            const taskList = currentTab === 'roadmap' ? ROADMAP_TASKS : STREAM_TASKS;
-            const task = taskList.find(t => t.id === currentSelectedTaskId);
-            showAILoading();
-            
-            const prompt = `As the Chief of Staff for Siphonic USA, break down the following node into 3 to 5 concise, actionable sub-steps for execution.\n\nTarget: ${task.title}\nDescription: ${task.desc}\n\nFormat the output as a clean, simple bulleted list. Do not include introductory text.`;
-            const result = await fetchGeminiWithRetry(prompt);
-            displayAIResult(result);
-        }
-
-        async function generatePitchDraft() {
-            if (!currentSelectedTaskId) return;
-            const taskList = currentTab === 'roadmap' ? ROADMAP_TASKS : STREAM_TASKS;
-            const task = taskList.find(t => t.id === currentSelectedTaskId);
-            showAILoading();
-            
-            const prompt = `Act as a Vanguard Sales Pod leader for Siphonic USA. Draft a very short, punchy, and persuasive email pitch or internal memo (max 4 sentences) based on the objective of this node.\n\nTarget: ${task.title}\nDescription: ${task.desc}\n\nKeep it highly professional, aggressive on value, and highlight cost/structural/liability savings where applicable. Do not include subject lines.`;
-            const result = await fetchGeminiWithRetry(prompt);
-            displayAIResult(result);
-        }
-
-        // --- INTERACTIVITY: PAN & ZOOM ---
-        const viewport = document.getElementById('viewport');
-        const canvas = document.getElementById('canvas');
+        </div>
         
-        let scale = 1;
-        let translateX = 0;
-        let translateY = 0;
-        let isDragging = false;
-        let startX, startY;
+        <!-- Bottom: Tooltip/Help -->
+        <div class="pointer-auto self-end bg-slate-900/80 backdrop-blur border border-slate-800 px-4 py-2 rounded-lg text-[10px] font-medium text-slate-400 tracking-wider flex gap-4">
+            <span><strong class="text-slate-200">Drag Port:</strong> Connect Nodes</span>
+            <span class="w-px bg-slate-700"></span>
+            <span><strong class="text-slate-200">Right-Click:</strong> Pan Canvas</span>
+            <span class="w-px bg-slate-700"></span>
+            <span><strong class="text-slate-200">Scroll:</strong> Zoom</span>
+        </div>
+    </div>
 
-        function updateTransform() {
-            canvas.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
-            const slider = document.getElementById('zoom-slider');
-            if(slider && Math.abs(slider.value - scale) > 0.01) {
-                slider.value = scale;
-            }
-        }
-
-        document.getElementById('zoom-slider').addEventListener('input', (e) => {
-            const newScale = parseFloat(e.target.value);
-            const mouseX = window.innerWidth / 2;
-            const mouseY = window.innerHeight / 2;
-            translateX = mouseX - (mouseX - translateX) * (newScale / scale);
-            translateY = mouseY - (mouseY - translateY) * (newScale / scale);
-            scale = newScale;
-            updateTransform();
-        });
-
-        function resetView() {
-            setTimeout(() => {
-                const canvasEl = document.getElementById('canvas');
-                const canvasWidth = canvasEl.offsetWidth || 3000;
-                
-                // SDD/TDD Iron Law: Calculate true scale ratio to fit the entire map perfectly on screen
-                const padding = 120;
-                const targetScale = Math.min(1, (window.innerWidth - padding) / canvasWidth);
-                
-                scale = targetScale;
-                // Center the scaled canvas perfectly
-                translateX = (window.innerWidth - (canvasWidth * scale)) / 2;
-                translateY = 100;
-                
-                updateTransform();
-            }, 50); // slight delay to ensure DOM has rendered
-        }
-
-        // --- U-P-C EVOLUTION LEDGER SYNC ---
-        function exportManifest() {
-            const manifest = {
-                timestamp: new Date().toISOString(),
-                roadmap_tasks: ROADMAP_TASKS,
-                stream_tasks: STREAM_TASKS
-            };
-            const blob = new Blob([JSON.stringify(manifest, null, 2)], { type: 'application/json' });
-            const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `siphonic-evolution-ledger-${Date.now()}.json`;
-            a.click();
-        }
-
-        viewport.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            if (e.ctrlKey || e.metaKey) {
-                const zoomSensitivity = 0.002;
-                const delta = -e.deltaY * zoomSensitivity;
-                const newScale = Math.min(Math.max(0.2, scale + delta), 3);
-                
-                const rect = viewport.getBoundingClientRect();
-                const mouseX = e.clientX - rect.left;
-                const mouseY = e.clientY - rect.top;
-                
-                translateX = mouseX - (mouseX - translateX) * (newScale / scale);
-                translateY = mouseY - (mouseY - translateY) * (newScale / scale);
-                scale = newScale;
-            } else {
-                translateX -= e.deltaX * 1.5;
-                translateY -= e.deltaY * 1.5;
-            }
-            updateTransform();
-        }, { passive: false });
-
-        viewport.addEventListener('mousedown', (e) => {
-            if (e.target.closest('button') || e.target.closest('.glass-card') || e.target.closest('.tab-btn')) return;
-            isDragging = true;
-            startX = e.clientX - translateX;
-            startY = e.clientY - translateY;
-        });
-
-        window.addEventListener('mousemove', (e) => {
-            if (!isDragging) return;
-            translateX = e.clientX - startX;
-            translateY = e.clientY - startY;
-            updateTransform();
-        });
-
-        window.addEventListener('mouseup', () => isDragging = false);
-
-        // --- DYNAMIC DATA FUNCTIONS ---
-        let actionHistory = [];
-
-        function saveState() {
-            actionHistory.push({
-                ROADMAP_COLS: JSON.parse(JSON.stringify(ROADMAP_COLS)),
-                ROADMAP_TASKS: JSON.parse(JSON.stringify(ROADMAP_TASKS)),
-                STREAM_COLS: JSON.parse(JSON.stringify(STREAM_COLS)),
-                STREAM_TASKS: JSON.parse(JSON.stringify(STREAM_TASKS))
-            });
-            updateUndoButton();
-        }
-
-        function undoAction() {
-            if (actionHistory.length === 0) return;
-            const previousState = actionHistory.pop();
-            ROADMAP_COLS = previousState.ROADMAP_COLS;
-            ROADMAP_TASKS = previousState.ROADMAP_TASKS;
-            STREAM_COLS = previousState.STREAM_COLS;
-            STREAM_TASKS = previousState.STREAM_TASKS;
-            updateUndoButton();
-            renderCanvas();
-        }
-
-        function updateUndoButton() {
-            const undoBtn = document.getElementById('undo-btn');
-            if(undoBtn) {
-                if(actionHistory.length > 0) {
-                    undoBtn.style.opacity = '1';
-                    undoBtn.style.pointerEvents = 'auto';
-                } else {
-                    undoBtn.style.opacity = '0.5';
-                    undoBtn.style.pointerEvents = 'none';
-                }
-            }
-        }
-
-        const inputModal = document.getElementById('input-modal');
-        const inputModalContent = document.getElementById('input-modal-content');
-        let inputModalCallback = null;
-
-        function openInputModal(title, fields, callback) {
-            document.getElementById('input-modal-title').innerText = title;
-            const container = document.getElementById('input-fields-container');
-            container.innerHTML = '';
+    <!-- Hidden Node Template -->
+    <template id="node-template">
+        <div class="flow-node p-5 group">
+            <div class="port input-port" title="Input (Click to connect)"></div>
+            <div class="port output-port" title="Output (Drag to input)"></div>
             
-            fields.forEach(field => {
-                const label = document.createElement('label');
-                label.className = 'block text-xs font-bold uppercase tracking-wider text-slate-400 mb-1.5';
-                label.innerText = field.label;
-                
-                let input;
-                if(field.type === 'textarea') {
-                    input = document.createElement('textarea');
-                    input.className = 'w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-sky-500 focus:outline-none transition-colors min-h-[80px]';
-                    input.id = field.id;
-                    if(field.placeholder) input.placeholder = field.placeholder;
-                } else if(field.type === 'select') {
-                    input = document.createElement('select');
-                    input.className = 'w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-sky-500 focus:outline-none transition-colors cursor-pointer appearance-none';
-                    input.style.backgroundImage = "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke-width='2' stroke='%2394a3b8'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E\")";
-                    input.style.backgroundRepeat = 'no-repeat';
-                    input.style.backgroundPosition = 'right 1rem center';
-                    input.style.backgroundSize = '1em';
-                    input.id = field.id;
-                    if(field.options) {
-                        field.options.forEach(opt => {
-                            const option = document.createElement('option');
-                            option.value = opt.value;
-                            option.innerText = opt.label;
-                            input.appendChild(option);
-                        });
-                    }
-                } else {
-                    input = document.createElement('input');
-                    input.type = 'text';
-                    input.className = 'w-full bg-slate-950 border border-slate-700 rounded-lg p-3 text-white text-sm focus:border-sky-500 focus:outline-none transition-colors';
-                    input.id = field.id;
-                    if(field.placeholder) input.placeholder = field.placeholder;
-                }
-                
-                const wrapper = document.createElement('div');
-                wrapper.appendChild(label);
-                wrapper.appendChild(input);
-                container.appendChild(wrapper);
-            });
+            <input type="text" class="w-full bg-transparent border-b border-transparent hover:border-slate-700 focus:border-sky-500 outline-none font-bold text-lg mb-3 transition-colors placeholder-slate-600 pb-1" placeholder="Node Title">
+            <textarea class="w-full bg-transparent border border-transparent hover:border-slate-700 focus:border-sky-500 outline-none text-xs text-slate-300 resize-none h-20 transition-colors placeholder-slate-600 rounded p-2 leading-relaxed" placeholder="Detailed description, logic, or notes..."></textarea>
+            
+            <div class="mt-4 pt-3 border-t border-slate-700/50 flex flex-col gap-2">
+                <div class="flex justify-between items-center">
+                    <span class="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Vertical Level (Z-Axis)</span>
+                    <span class="z-value-display text-xs font-black text-sky-400">0</span>
+                </div>
+                <input type="range" min="-1000" max="1000" value="0" class="w-full accent-sky-500 z-slider cursor-pointer">
+            </div>
+            
+            <div class="crm-actions hidden mt-3 flex gap-2">
+                <button class="fetch-crm-btn bg-slate-800 hover:bg-emerald-600 text-emerald-400 hover:text-white px-3 py-1.5 rounded border border-emerald-500/30 text-[10px] uppercase tracking-wider font-bold transition-colors flex-1 flex justify-center items-center gap-1">
+                    <i data-lucide="search" class="w-3 h-3"></i> Sync CRM
+                </button>
+                <a href="#" target="_blank" class="open-crm-btn bg-slate-800 hover:bg-sky-600 text-sky-400 hover:text-white px-3 py-1.5 rounded border border-sky-500/30 text-[10px] uppercase tracking-wider font-bold transition-colors flex justify-center items-center gap-1 hidden">
+                    <i data-lucide="external-link" class="w-3 h-3"></i> View
+                </a>
+            </div>
+        </div>
+    </template>
 
-            inputModalCallback = callback;
+    <script>
+        lucide.createIcons();
+
+        // ==========================================
+        // 1. ENGINE INITIALIZATION (Three.js)
+        // ==========================================
+        const webglContainer = document.getElementById('webgl-container');
+        const cssContainer = document.getElementById('css-container');
+
+        const scene = new THREE.Scene();
+        scene.fog = new THREE.FogExp2(0x020617, 0.0002); // Deep space fade effect
+
+        const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 1, 15000);
+        
+        // WebGL for rendering connection lines (Bezier curves)
+        const webglRenderer = new THREE.WebGLRenderer({ alpha: true, antialias: true });
+        webglRenderer.setSize(window.innerWidth, window.innerHeight);
+        webglContainer.appendChild(webglRenderer.domElement);
+
+        // CSS3D for rendering actual DOM HTML nodes in 3D space
+        const cssRenderer = new THREE.CSS3DRenderer();
+        cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        cssContainer.appendChild(cssRenderer.domElement);
+
+        // OrbitControls for panning, zooming, and 3D rotation
+        const controls = new THREE.OrbitControls(camera, cssRenderer.domElement);
+        controls.enableDamping = true;
+        controls.dampingFactor = 0.05;
+
+        // ==========================================
+        // 2. VIEW STATE MACHINE
+        // ==========================================
+        // 0 = 2D Top (XY Plane)
+        // 1 = 2D Side Profile (XZ Plane)
+        // 2 = 3D Tilted (Full rotation)
+        let viewState = 0;
+        let targetCameraPos = new THREE.Vector3(0, 0, 1800);
+        let targetCameraLook = new THREE.Vector3(0, 0, 0);
+
+        // Initialize default view
+        camera.position.copy(targetCameraPos);
+        camera.lookAt(targetCameraLook);
+        
+        // Restrict controls initially to 2D Panning only
+        controls.enableRotate = false;
+        controls.mouseButtons = {
+            LEFT: THREE.MOUSE.PAN,
+            MIDDLE: THREE.MOUSE.DOLLY,
+            RIGHT: THREE.MOUSE.PAN
+        };
+
+        const viewConfig = [
+            { label: "2D Top Profile", icon: "layout-template", color: "text-indigo-400", pos: new THREE.Vector3(0, 0, 1800), rotate: false },
+            { label: "2D Side Profile", icon: "align-vertical-space-around", color: "text-emerald-400", pos: new THREE.Vector3(0, -1800, 0), rotate: false },
+            { label: "3D Spatial View", icon: "box", color: "text-fuchsia-400", pos: new THREE.Vector3(1200, -1200, 1200), rotate: true }
+        ];
+
+        function toggleView() {
+            viewState = (viewState + 1) % 3;
+            const config = viewConfig[viewState];
+            
+            // Update UI
+            document.getElementById('view-label').innerText = config.label;
+            document.getElementById('view-icon-wrapper').innerHTML = `<i data-lucide="${config.icon}" class="w-6 h-6 ${config.color}"></i>`;
             lucide.createIcons();
 
-            inputModal.classList.remove('hidden');
-            inputModal.classList.add('flex');
-            void inputModal.offsetWidth;
-            inputModal.classList.remove('opacity-0');
-            inputModalContent.classList.remove('scale-95');
-            inputModalContent.classList.add('scale-100');
+            // Animate Icon Wrapper
+            const wrapper = document.getElementById('view-icon-wrapper');
+            wrapper.style.transform = 'scale(0.8)';
+            setTimeout(() => wrapper.style.transform = 'scale(1)', 150);
+
+            // Set Target Camera Math
+            targetCameraPos.copy(config.pos);
+            controls.enableRotate = config.rotate;
             
-            setTimeout(() => {
-                const firstInput = container.querySelector('input, textarea, select');
-                if(firstInput) firstInput.focus();
-            }, 50);
+            if (config.rotate) {
+                controls.mouseButtons.LEFT = THREE.MOUSE.ROTATE; // Enable 3D drag-to-rotate
+            } else {
+                controls.mouseButtons.LEFT = THREE.MOUSE.PAN; // Lock back to 2D panning
+            }
         }
 
-        function closeInputModal() {
-            inputModal.classList.add('opacity-0');
-            inputModalContent.classList.remove('scale-100');
-            inputModalContent.classList.add('scale-95');
-            setTimeout(() => {
-                inputModal.classList.add('hidden');
-                inputModal.classList.remove('flex');
-            }, 200);
-        }
+        // ==========================================
+        // 3. GRAPH DATA & INTERACTION LOGIC
+        // ==========================================
+        const nodes = [];
+        const connections = [];
 
-        inputModal.addEventListener('click', (e) => {
-            if(e.target === inputModal) closeInputModal();
+        const raycaster = new THREE.Raycaster();
+        const mouse = new THREE.Vector2();
+        
+        // Mathematical plane for raycasting mouse coordinates to drag nodes in 2D space
+        const dragPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+        
+        let draggedNode = null;
+        let connectingNode = null; // The node currently stretching a line
+        let tempLineMesh = null;   // The temporary line being drawn to the mouse
+
+        const LINE_MATERIAL = new THREE.LineBasicMaterial({ 
+            color: 0x38bdf8, 
+            linewidth: 2, 
+            transparent: true, 
+            opacity: 0.7 
+        });
+        
+        const TEMP_LINE_MATERIAL = new THREE.LineBasicMaterial({ 
+            color: 0xa855f7, 
+            opacity: 0.8, 
+            transparent: true, 
+            dashed: true 
         });
 
-        function submitInputModal() {
-            if(!inputModalCallback) return;
-            const container = document.getElementById('input-fields-container');
-            const inputs = container.querySelectorAll('input, textarea, select');
-            const values = {};
-            let hasEmptyRequired = false;
-            
-            inputs.forEach(input => {
-                values[input.id] = input.value.trim();
-                if((input.id === 'node-title' || input.id === 'col-name') && !values[input.id]) hasEmptyRequired = true;
-            });
+        // 3D Cubic Bezier Math for sexy connection lines
+        function buildBezierGeometry(p1, p2) {
+            const dist = p1.distanceTo(p2);
+            const ctrlOffset = Math.max(150, dist * 0.4); // Extrude control points horizontally
+            const curve = new THREE.CubicBezierCurve3(
+                p1,
+                p1.clone().add(new THREE.Vector3(ctrlOffset, 0, 0)),
+                p2.clone().add(new THREE.Vector3(-ctrlOffset, 0, 0)),
+                p2
+            );
+            return new THREE.BufferGeometry().setFromPoints(curve.getPoints(50));
+        }
 
-            if(hasEmptyRequired) {
-                alert("Please fill in the required name/title field.");
-                return; 
+        function createTempLine() {
+            const geometry = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), new THREE.Vector3()]);
+            tempLineMesh = new THREE.Line(geometry, TEMP_LINE_MATERIAL);
+            scene.add(tempLineMesh);
+        }
+
+        function updateTempLine(endPoint) {
+            if(!tempLineMesh || !connectingNode) return;
+            const p1 = new THREE.Vector3(connectingNode.position.x + 140, connectingNode.position.y, connectingNode.position.z);
+            tempLineMesh.geometry.dispose();
+            tempLineMesh.geometry = buildBezierGeometry(p1, endPoint);
+        }
+
+        function createConnection(sourceNode, targetNode) {
+            // Prevent duplicate connections
+            const exists = connections.find(c => c.source === sourceNode && c.target === targetNode);
+            if (exists) return;
+
+            const p1 = new THREE.Vector3(sourceNode.position.x + 140, sourceNode.position.y, sourceNode.position.z);
+            const p2 = new THREE.Vector3(targetNode.position.x - 140, targetNode.position.y, targetNode.position.z);
+            
+            const line = new THREE.Line(buildBezierGeometry(p1, p2), LINE_MATERIAL);
+            scene.add(line);
+            
+            connections.push({ source: sourceNode, target: targetNode, line: line });
+        }
+
+        function updateConnections() {
+            connections.forEach(conn => {
+                const p1 = new THREE.Vector3(conn.source.position.x + 140, conn.source.position.y, conn.source.position.z);
+                const p2 = new THREE.Vector3(conn.target.position.x - 140, conn.target.position.y, conn.target.position.z);
+                conn.line.geometry.dispose();
+                conn.line.geometry = buildBezierGeometry(p1, p2);
+            });
+        }
+
+        // ==========================================
+        // 4. NODE CREATION & LIFECYCLE
+        // ==========================================
+        function addNode(type = 'component') {
+            const template = document.getElementById('node-template');
+            const clone = template.content.cloneNode(true);
+            const el = clone.querySelector('.flow-node');
+            const titleInput = el.querySelector('input');
+            const descArea = el.querySelector('textarea');
+            
+            if (type === 'note') {
+                el.classList.add('note');
+                titleInput.value = "Observation Note";
+            } else if (type === 'crm') {
+                el.classList.add('crm');
+                titleInput.value = "";
+                titleInput.placeholder = "Enter Company Name (Exact Match)";
+                descArea.placeholder = "CRM data will auto-populate here...";
+                descArea.readOnly = true;
+                
+                const crmActions = el.querySelector('.crm-actions');
+                crmActions.classList.remove('hidden');
+                
+                const fetchBtn = el.querySelector('.fetch-crm-btn');
+                const openBtn = el.querySelector('.open-crm-btn');
+                
+                fetchBtn.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const q = titleInput.value.trim();
+                    if(!q) return;
+                    
+                    fetchBtn.innerHTML = `<i data-lucide="loader" class="w-3 h-3 animate-spin"></i> Syncing...`;
+                    lucide.createIcons();
+                    
+                    try {
+                        const { data, error } = await window.supabaseClient
+                            .from('siphonic_companies')
+                            .select('*')
+                            .ilike('name', `%${q}%`)
+                            .limit(1);
+                            
+                        if (error) throw error;
+                        
+                        if (data && data.length > 0) {
+                            const comp = data[0];
+                            titleInput.value = comp.name;
+                            descArea.value = `ID: ${comp.id}\nType: ${comp.type_id}\nPhone: ${comp.phone || 'N/A'}\nWebsite: ${comp.website || 'N/A'}\nNotes: ${comp.notes || 'None'}`;
+                            
+                            openBtn.classList.remove('hidden');
+                            openBtn.href = `https://agenticbusiness.github.io/Siphonic-Master-CRM/?view=companies&id=${comp.id}`;
+                            fetchBtn.innerHTML = `<i data-lucide="check" class="w-3 h-3"></i> Synced`;
+                        } else {
+                            descArea.value = "Error: CRM Entity not found in database.";
+                            fetchBtn.innerHTML = `<i data-lucide="search" class="w-3 h-3"></i> Sync CRM`;
+                        }
+                    } catch(err) {
+                        descArea.value = "Connection Error to VPS Brain.";
+                        fetchBtn.innerHTML = `<i data-lucide="search" class="w-3 h-3"></i> Sync CRM`;
+                    }
+                    lucide.createIcons();
+                });
             }
 
-            inputModalCallback(values);
-            closeInputModal();
-        }
+            // Convert DOM to 3D Space Object
+            const object = new THREE.CSS3DObject(el);
+            // Spawn near center
+            object.position.x = (Math.random() - 0.5) * 500;
+            object.position.y = (Math.random() - 0.5) * 500;
+            object.position.z = 0;
+            
+            scene.add(object);
+            nodes.push(object);
 
-        function promptAddNode(colId, rowId) {
-            openInputModal('Add New Node', [
-                { id: 'node-title', label: 'Node Title', placeholder: 'Enter node title' },
-                { id: 'node-owner', label: 'Assigned Owner', type: 'select', options: [
-                    { value: 'brennan', label: 'Brennan' },
-                    { value: 'mia', label: 'Mia' },
-                    { value: 'outsourced', label: 'Outsourced / AI' }
-                ]},
-                { id: 'node-desc', label: 'Description', type: 'textarea', placeholder: 'Enter short description' }
-            ], (values) => {
-                saveState();
-                const newNode = {
-                    id: 'n_' + Date.now(),
-                    rowId: rowId,
-                    colId: colId,
-                    ownerId: values['node-owner'],
-                    title: values['node-title'],
-                    desc: values['node-desc'] || 'New node added manually.'
-                };
-                if (currentTab === 'roadmap') ROADMAP_TASKS.push(newNode);
-                else STREAM_TASKS.push(newNode);
-                renderCanvas();
+            // Bind Port Logic (Wiring)
+            const outPort = el.querySelector('.output-port');
+            const inPort = el.querySelector('.input-port');
+            
+            outPort.addEventListener('mousedown', (e) => {
+                e.stopPropagation();
+                connectingNode = object;
+                if(!tempLineMesh) createTempLine();
             });
-        }
 
-        function promptAddColumn() {
-            const isRoadmap = currentTab === 'roadmap';
-            openInputModal(isRoadmap ? 'Add Execution Branch' : 'Add Business Stream', [
-                { id: 'col-name', label: 'Name', placeholder: 'Enter name' }
-            ], (values) => {
-                saveState();
-                const newCol = {
-                    id: 'c_' + Date.now(),
-                    name: values['col-name'],
-                    sub: 'Custom Addition',
-                    accent: 'border-orange-500/30'
-                };
-                if (isRoadmap) ROADMAP_COLS.push(newCol);
-                else STREAM_COLS.push(newCol);
-                renderCanvas();
-                translateX -= 400 * scale;
-                updateTransform();
+            inPort.addEventListener('mouseup', (e) => {
+                e.stopPropagation();
+                if (connectingNode && connectingNode !== object) {
+                    createConnection(connectingNode, object);
+                }
+                connectingNode = null;
+                if(tempLineMesh) {
+                    scene.remove(tempLineMesh);
+                    tempLineMesh = null;
+                }
             });
+
+            // Bind Drag Logic
+            el.addEventListener('mousedown', (e) => {
+                // Ignore drags if interacting with inputs/ports
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.classList.contains('port')) return;
+                
+                e.stopPropagation();
+                controls.enabled = false; // Disable camera panning while dragging node
+                draggedNode = object;
+                
+                // Align mathematical drag plane to the node's current Z depth
+                dragPlane.constant = -object.position.z;
+            });
+
+            // Bind Z-Level (Depth) Slider
+            const zSlider = el.querySelector('.z-slider');
+            const zDisplay = el.querySelector('.z-value-display');
+            
+            zSlider.addEventListener('input', (e) => {
+                const zVal = parseInt(e.target.value);
+                object.position.z = zVal;
+                zDisplay.innerText = zVal;
+                updateConnections();
+            });
+            
+            // Prevent dragging node when sliding Z-axis
+            zSlider.addEventListener('mousedown', e => e.stopPropagation());
         }
 
-        // Init
-        resetView();
-        renderCanvas();
+        // ==========================================
+        // 5. GLOBAL EVENT LISTENERS
+        // ==========================================
+        window.addEventListener('mousemove', (e) => {
+            // Convert to normalized device coordinates
+            mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+
+            if (draggedNode) {
+                raycaster.setFromCamera(mouse, camera);
+                const targetPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(dragPlane, targetPoint);
+                if (targetPoint) {
+                    draggedNode.position.x = targetPoint.x;
+                    draggedNode.position.y = targetPoint.y;
+                    updateConnections();
+                }
+            }
+
+            if (connectingNode && tempLineMesh) {
+                raycaster.setFromCamera(mouse, camera);
+                // Draw temp line on the Z-plane of the source node
+                const tempPlane = new THREE.Plane(new THREE.Vector3(0, 0, 1), -connectingNode.position.z);
+                const targetPoint = new THREE.Vector3();
+                raycaster.ray.intersectPlane(tempPlane, targetPoint);
+                if(targetPoint) updateTempLine(targetPoint);
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            if (draggedNode) {
+                draggedNode = null;
+                controls.enabled = true; // Re-enable camera
+            }
+            if (connectingNode) {
+                connectingNode = null;
+                if(tempLineMesh) {
+                    scene.remove(tempLineMesh);
+                    tempLineMesh = null;
+                }
+            }
+        });
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            webglRenderer.setSize(window.innerWidth, window.innerHeight);
+            cssRenderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
+        // ==========================================
+        // 6. RENDER LOOP
+        // ==========================================
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Smooth Camera Transitions
+            camera.position.lerp(targetCameraPos, 0.04);
+            controls.target.lerp(targetCameraLook, 0.04);
+            controls.update(); // Required for damping
+
+            // Billboard Logic: Ensure DOM text is always readable
+            nodes.forEach(node => {
+                if (viewState === 0) {
+                    // Lock flat to Z plane for Top-Down
+                    node.rotation.set(0, 0, 0);
+                } else {
+                    // Auto-rotate to face camera in Side and 3D views
+                    node.lookAt(camera.position);
+                }
+            });
+
+            webglRenderer.render(scene, camera);
+            cssRenderer.render(scene, camera);
+        }
+
+        // Boot
+        animate();
+        
+        // Initialize Supabase Client
+        const SUPABASE_URL = "http://76.13.106.127:8100";
+        // Using the anon key
+        const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzcyNjQwNTI5LCJleHAiOjIwODgwMDA1Mjl9.hY8iOaZzBf0t3z0T-RZZwGq0-5R8QjM9Y5hZl_BqkE4";
+        window.supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        
+        // Spawn Demo Data
+        setTimeout(() => {
+            addNode('component');
+            nodes[0].position.set(-400, 150, 0);
+            nodes[0].element.querySelector('input').value = "Ingestion Matrix";
+            nodes[0].element.querySelector('textarea').value = "Parses raw PDF data into structured JSON blocks.";
+            
+            addNode('component');
+            nodes[1].position.set(0, 0, -300);
+            nodes[1].element.querySelector('input').value = "Core Processing";
+            nodes[1].element.querySelector('textarea').value = "Applies 1.2x logic alignment to raw datasets.";
+            nodes[1].element.querySelector('.z-slider').value = -300;
+            nodes[1].element.querySelector('.z-value-display').innerText = "-300";
+            
+            addNode('note');
+            nodes[2].position.set(400, -150, -600);
+            nodes[2].element.querySelector('input').value = "Output DB";
+            nodes[2].element.querySelector('textarea').value = "Final commit to Shards-HASM.";
+            nodes[2].element.querySelector('.z-slider').value = -600;
+            nodes[2].element.querySelector('.z-value-display').innerText = "-600";
+            
+            createConnection(nodes[0], nodes[1]);
+            createConnection(nodes[1], nodes[2]);
+        }, 500);
 
     </script>
 </body>
